@@ -1,0 +1,134 @@
+// ...existing code...
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Ingredient -> Recipe Suggestion</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; margin: 20px; max-width:900px; }
+    textarea { width:100%; height:80px; }
+    .recipe { border:1px solid #ddd; padding:10px; margin:10px 0; border-radius:6px; }
+    .badge { display:inline-block; background:#eef; padding:2px 8px; margin:2px; border-radius:12px; font-size:12px; }
+    .no-match { color:#a33; }
+  </style>
+</head>
+<body>
+  <h1>PlanToPlate — Recipe suggestions</h1>
+  <p>Enter the ingredients you have (comma separated):</p>
+  <textarea id="ingredients" placeholder="e.g. eggs, tomato, onion, garlic"></textarea>
+  <div style="margin-top:8px;">
+    <button id="suggestBtn">Suggest Recipes</button>
+    <button id="clearBtn">Clear</button>
+  </div>
+
+  <h2>Suggestions</h2>
+  <div id="results">No suggestions yet.</div>
+
+  <script>
+    // Simple sample recipe database
+    const RECIPES = [
+      { name: "Tomato Omelette", ingredients: ["eggs","tomato","salt","pepper"], steps: ["Beat eggs","Chop tomato","Cook together in a pan"] },
+      { name: "Garlic Pasta", ingredients: ["pasta","garlic","olive oil","salt"], steps: ["Boil pasta","Sauté garlic in oil","Toss pasta with garlic"] },
+      { name: "Veggie Stir Fry", ingredients: ["broccoli","carrot","onion","soy sauce","garlic"], steps: ["Chop veggies","Stir fry with sauce"] },
+      { name: "Simple Salad", ingredients: ["lettuce","tomato","olive oil","salt"], steps: ["Chop","Toss with oil and salt"] }
+    ];
+
+    function normalizeList(text) {
+      return text.split(',')
+        .map(s => s.trim().toLowerCase())
+        .filter(s => s.length>0);
+    }
+
+    function matchScore(available, recipe) {
+      const total = recipe.length;
+      let have = 0;
+      for (const ing of recipe) if (available.includes(ing)) have++;
+      return { have, total, ratio: have/total };
+    }
+
+    function suggestRecipes(availableIngredients) {
+      const avail = availableIngredients.map(s => s.toLowerCase());
+      const scored = RECIPES.map(r => {
+        const score = matchScore(avail, r.ingredients);
+        return Object.assign({}, r, score);
+      });
+      // prefer recipes with full match, then highest ratio
+      scored.sort((a,b) => (b.ratio - a.ratio) || (b.have - a.have));
+      return scored;
+    }
+
+    function renderResults(list) {
+      const container = document.getElementById('results');
+      container.innerHTML = "";
+      if (!list || list.length === 0) {
+        container.textContent = "No suggestions.";
+        return;
+      }
+      for (const r of list) {
+        const div = document.createElement('div');
+        div.className = 'recipe';
+        const title = document.createElement('h3');
+        title.textContent = r.name;
+        div.appendChild(title);
+
+        const info = document.createElement('div');
+        info.innerHTML = `<strong>Match:</strong> ${r.have}/${r.total} (${Math.round(r.ratio*100)}%)`;
+        div.appendChild(info);
+
+        const ingList = document.createElement('div');
+        ingList.style.marginTop = '6px';
+        ingList.innerHTML = "<strong>Ingredients:</strong> ";
+        for (const ing of r.ingredients) {
+          const span = document.createElement('span');
+          span.className = 'badge';
+          span.textContent = ing;
+          if (!document.getElementById('searchIndicator')) {
+            // noop
+          }
+          ingList.appendChild(span);
+        }
+        div.appendChild(ingList);
+
+        const steps = document.createElement('details');
+        const summary = document.createElement('summary');
+        summary.textContent = 'Steps';
+        steps.appendChild(summary);
+        const ol = document.createElement('ol');
+        for (const s of r.steps) {
+          const li = document.createElement('li');
+          li.textContent = s;
+          ol.appendChild(li);
+        }
+        steps.appendChild(ol);
+        div.appendChild(steps);
+
+        container.appendChild(div);
+      }
+    }
+
+    document.getElementById('suggestBtn').addEventListener('click', () => {
+      const raw = document.getElementById('ingredients').value;
+      const avail = normalizeList(raw);
+      if (avail.length === 0) {
+        document.getElementById('results').innerHTML = '<div class="no-match">Please enter some ingredients.</div>';
+        return;
+      }
+      const suggestions = suggestRecipes(avail);
+      // show only top 5 and hide recipes with ratio < 0.25 by default
+      const filtered = suggestions.filter(s => s.ratio >= 0.25).slice(0,5);
+      if (filtered.length === 0) {
+        document.getElementById('results').innerHTML = '<div class="no-match">No good matches found. Try adding more ingredients.</div>';
+      } else {
+        renderResults(filtered);
+      }
+    });
+
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      document.getElementById('ingredients').value = '';
+      document.getElementById('results').textContent = 'No suggestions yet.';
+    });
+  </script>
+</body>
+</html>
+// ...existing code...
